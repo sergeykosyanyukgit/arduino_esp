@@ -3,7 +3,7 @@
  
 const char* ssid = "ASUS_X00PD";
 const char* password =  "Froiji22";
- 
+int p = 0;
 void setup() {
  
   Serial.begin(115200);
@@ -23,9 +23,11 @@ void setup() {
 void loop() {
  if(WiFi.status()== WL_CONNECTED){   //Check WiFi connection status
    HTTPClient http;
-   http.begin("https://mongo-express-vue-node.herokuapp.com/api/posts/esp/");  //Specify destination for HTTP request
+   http.begin("https://arduino-esp.herokuapp.com/api/posts/esp-reload-hum/");  //Specify destination for HTTP request
    http.addHeader("Content-Type", "application/json");             //Specify content-type header
-   int httpResponseCode = http.POST("{\"text\": \"Hello arduino day from DSTU\",\"type\": \"danger\"}");   //Send the actual POST request
+   int httpResponseCode = http.POST("{\"sensorValue\": \"100%\",\"id\": \"5c866237916c480017e914e7\"}");
+   p++;
+   //int httpResponseCode = http.POST("{\"sensorValue\": \"100%\"}");
    if(httpResponseCode>0){
     Serial.println(httpResponseCode);   //Print return code
    }else{
