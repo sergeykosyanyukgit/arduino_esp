@@ -1,49 +1,50 @@
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include <Tone32.h>
-const char* ssid = "ASUS_X00PD";
+//Подключаем библиотеки
+#include <WiFi.h> //Wifi
+#include <HTTPClient.h> //Библиотека создания запросов к серверу
+#include <ArduinoJson.h> //Библиотека приобразования строк в json объект и обратно
+#include <Tone32.h> //Для пищалки
+const char* ssid = "ASUS_X00PD"; //Логин и пароль от точки доступа
 const char* password =  "Froiji22";
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200);//Скорость передачи данных на пк
   delay(4000);   
  
-  WiFi.begin(ssid, password); 
+  WiFi.begin(ssid, password); //Инициализируем wifi
  
-  while (WiFi.status() != WL_CONNECTED) { //Check for the connection
+  while (WiFi.status() != WL_CONNECTED) { //Ожидаем подключения к точке доступа
     delay(500);
     Serial.println("Connecting..");
   }
  
   Serial.print("Connected to the WiFi network with IP: ");
-  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.localIP()); //Выводим ip адрес
 }
 
 void loop() {
-  if(WiFi.status()== WL_CONNECTED){
-    HTTPClient http;
-    http.begin("https://arduino-esp.herokuapp.com/api/posts/esp/"); //HTTP
-    int httpCode = http.GET();
-    if(httpCode > 0) {
-      Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-      if(httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
-        payload.replace("[","");
+  if(WiFi.status()== WL_CONNECTED){//Если еще подключены к wifi
+    HTTPClient http;//Создаем новый http клиент
+    http.begin("https://arduino-esp.herokuapp.com/api/posts/esp/"); //Устанавливаем адрес сервера
+    int httpCode = http.GET(); //Производим GET запрос к серверу и код ответа сохраняем в переменную
+    if(httpCode > 0) { //Если вообще что то получили
+      Serial.printf("[HTTP] GET... code: %d\n", httpCode); //Печатаем код ответа (200 или 201 - значит все норм, 404 - недоступен сервер)
+      if(httpCode == HTTP_CODE_OK) { //Если пришел нормальный ответ
+        String payload = http.getString(); //Получаем из ответа сервера строку (на самом деле это массив Json - объектов)
+        payload.replace("[",""); //Чтобы нормально парсить его, удаляем ненужные символы из строки
         payload.replace("]","");
-        Serial.println(payload);
+        Serial.println(payload); //Печатаем то что пришло с сервера полностью
         //Поиск дополнительных строк
-        int k = payload.indexOf("},{");
+        int k = payload.indexOf("},{");//Ищем дополнительные карточки в ответе
         int g = -1;
         String payload_1;
         String payload_2;
-        if(k > 0) {
-          payload_1 = payload.substring(k);
-          payload_1.remove(0, 2);
-          g = payload_1.indexOf("},{");
-          if(g > 0){
-            payload_2 = payload_1.substring(g);
-            payload_2.remove(0, 2);
+        if(k > 0) { //если есть вторая доп карточка
+          payload_1 = payload.substring(k);//Вытаскиваем ее
+          payload_1.remove(0, 2);//Удаляем ненужный мусор из строки
+          g = payload_1.indexOf("},{");//ищем 3ю карточку
+          if(g > 0){//если она есть
+            payload_2 = payload_1.substring(g); //Вытаскиваем ее
+            payload_2.remove(0, 2);//Удаляем ненужный мусор из строки
           }
         }
         
@@ -52,7 +53,7 @@ void loop() {
         deserializeJson(doc, payload);
         JsonObject obj = doc.as<JsonObject>();
 
-        //Буферизация
+        //Буферизация нужных нам элементов первой карточки
         String id = obj[String("_id")].as<String>();
         String poliv = obj[String("poliv")].as<String>();
         int motorPort = obj[String("motor")].as<int>();
@@ -68,7 +69,7 @@ void loop() {
         int p = analogRead(sensorPort);
         p = map(p, 0, 4096, 100, 0);
         
-        //Подключаемся, формируем ответ серверу
+        //Подключаемся, формируем ответ серверу (датчики)
         HTTPClient httpRes;
         httpRes.begin("https://arduino-esp.herokuapp.com/api/posts/esp-reload-hum/");
         httpRes.addHeader("Content-Type", "application/json");
@@ -148,14 +149,14 @@ void loop() {
         } else {
           final_output = final_output + "]";
         }
-
+        //ВЫВОДИМ ИТОГОВЫЙ ОТВЕТ СЕРВЕРУ
         Serial.println(final_output);
 
 
         //Вдруг серв сгорел \.(-_-)./
-        int httpResponseCodeRes = httpRes.POST(final_output);
+        int httpResponseCodeRes = httpRes.POST(final_output); //Делаем Post запрос, передавая данные с сенсоров
         if(httpResponseCodeRes>0){
-          Serial.println(httpResponseCodeRes);   //Print return code
+          Serial.println(httpResponseCodeRes);   //если вообще передали
          }else{
           Serial.print("Error on sending request: ");
           Serial.println(httpResponseCodeRes);
@@ -165,7 +166,7 @@ void loop() {
     } else {
         Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
     }
-    http.end();
+    http.end();//Вырубаем http 
   }
   delay(500);
 }
